@@ -206,6 +206,55 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         .workers(worker_processes)
         .run()
         .err_into();
+    let watch_mode = { state.config.blocking_lock().watch_mode.clone() };
+    if matches!(watch_mode, Some(crate::config::WatchMode::Info) | Some(crate::config::WatchMode::Debug)) {
+        let tiles = state.tiles.clone();
+        let cache = state.cache.clone();
+        let config = state.config.clone();
+        let catalog = catalog.clone();
+        #[cfg(feature = "sprites")]
+        let sprites = state.sprites.clone();
+        #[cfg(feature = "fonts")]
+        let fonts = state.fonts.clone();
+        #[cfg(feature = "styles")]
+        let styles = state.styles.clone();
+
+        tokio::spawn(async move {
+            use tokio::time::{sleep, Duration};
+            loop {
+                sleep(Duration::from_secs(30)).await;
+                let mut cfg = config.lock().await;
+                if !cfg.incremental_publish.unwrap_or(false) {
+                    continue;
+                }
+                match cfg
+                    .reload_tile_sources_incremental(cache.clone(), &tiles)
+                    .await
+                {
+                    Ok(new_tiles) => {
+                        tiles.replace(new_tiles);
+                        let mut cat = catalog.write().await;
+                        *cat = Catalog {
+                            tiles: tiles.get_catalog(),
+                            #[cfg(feature = "sprites")]
+                            sprites: match sprites.get_catalog() {
+                                Ok(v) => v,
+                                Err(e) => {
+                                    error!("{e}");
+                                    Default::default()
+                                }
+                            },
+                            #[cfg(feature = "fonts")]
+                            fonts: fonts.get_catalog(),
+                            #[cfg(feature = "styles")]
+                            styles: styles.get_catalog(),
+                        };
+                    }
+                    Err(e) => error!("{e}") ,
+                }
+            }
+        });
+    }
 
     Ok((Box::pin(server), listen_addresses))
 }
