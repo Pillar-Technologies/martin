@@ -10,6 +10,9 @@ worker_processes: 8
 # Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
 cache_size_mb: 512
 
+# How the `/reload` endpoint updates tile sources [default: full]
+reload_mode: full
+
 # see https://maplibre.org/martin/config-file.html
 
 # postgres:

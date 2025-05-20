@@ -49,6 +49,24 @@ impl TileSources {
         }
     }
 
+    /// Incrementally update tile sources in place. Existing sources are kept,
+    /// new ones are added, and sources missing in `other` are removed.
+    pub fn sync_incremental(&self, other: TileSources) {
+        use std::collections::HashSet;
+
+        let mut seen = HashSet::new();
+        for (k, v) in other.0.into_iter() {
+            seen.insert(k.clone());
+            self.0.entry(k).or_insert(v);
+        }
+
+        for k in self.0.iter().map(|e| e.key().clone()).collect::<Vec<_>>() {
+            if !seen.contains(&k) {
+                self.0.remove(&k);
+            }
+        }
+    }
+
     pub fn get_source(&self, id: &str) -> actix_web::Result<TileInfoSource> {
         Ok(self
             .0

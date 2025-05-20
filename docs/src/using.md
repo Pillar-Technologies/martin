@@ -16,7 +16,7 @@ Martin data is available via the HTTP `GET` endpoints:
 | `/font/{font1},…,{fontN}/{start}-{end}`  | [Composite Font source](sources-fonts.md)      |
 | `/style/{style}`                         | [Style source](sources-styles.md)              |
 | `/health`                                | Martin server health check: returns 200 `OK`   |
-| `/reload`                                | Reload auto published tables and functions |
+| `/reload`                                | Reload auto published tables and functions (mode controlled by `reload_mode`) |
 
 ### Duplicate Source ID
 
