@@ -58,3 +58,23 @@ docker run \
   -e DATABASE_URL=postgresql://postgres@docker.for.win.localhost/db \
   ghcr.io/maplibre/martin
 ```
+
+### Build from source
+
+If you need to use your own binaries inside the Docker image, compile them first
+(using [`cross`](https://github.com/cross-rs/cross) or `cargo build --release`).
+Then build the image using the multi-platform Dockerfile:
+
+```bash
+docker build -f .github/files/multi-platform.Dockerfile -t myuser/martin:latest .
+```
+
+Tag and push the resulting image (for example to Docker Hub or GHCR) so it can
+be used in place of `ghcr.io/maplibre/martin`:
+
+```bash
+docker push myuser/martin:latest
+# or
+docker tag myuser/martin:latest ghcr.io/myuser/martin:latest
+docker push ghcr.io/myuser/martin:latest
+```
