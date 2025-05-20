@@ -38,6 +38,11 @@ worker_processes: 8
 # Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
 cache_size_mb: 1024
 
+# How the `/reload` endpoint updates tile sources [default: full]
+#   full - rebuild all sources
+#   incremental - add or remove only changed sources
+reload_mode: full
+
 # If the client accepts multiple compression formats, and the tile source is not pre-compressed, which compression should be used. `gzip` is faster, but `brotli` is smaller, and may be faster with caching.  Default could be different depending on Martin version.
 preferred_encoding: gzip
 

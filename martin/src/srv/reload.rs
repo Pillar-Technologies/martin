@@ -4,7 +4,7 @@ use tokio::sync::{Mutex, RwLock};
 use actix_web::{HttpResponse, Result as ActixResult, route};
 use actix_web::web::Data;
 
-use crate::config::Config;
+use crate::config::{Config, ReloadMode};
 use crate::source::{TileSources};
 use crate::srv::server::{map_internal_error, Catalog};
 use crate::utils::OptMainCache;
@@ -30,7 +30,11 @@ pub async fn reload_sources(
         .reload_tile_sources(cache.get_ref().clone())
         .await
         .map_err(map_internal_error)?;
-    tiles.replace(new_sources);
+
+    match cfg.reload_mode {
+        ReloadMode::Incremental => tiles.sync_incremental(new_sources),
+        _ => tiles.replace(new_sources),
+    }
 
     let mut cat = catalog.write().await;
     *cat = Catalog {

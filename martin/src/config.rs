@@ -29,6 +29,19 @@ use crate::{IdResolver, MartinResult};
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ReloadMode {
+    Full,
+    Incremental,
+}
+
+impl Default for ReloadMode {
+    fn default() -> Self {
+        ReloadMode::Full
+    }
+}
+
 pub struct ServerState {
     pub cache: OptMainCache,
     pub tiles: TileSources,
@@ -76,6 +89,9 @@ pub struct Config {
     #[cfg(feature = "fonts")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub fonts: OptOneMany<PathBuf>,
+
+    #[serde(default)]
+    pub reload_mode: ReloadMode,
 
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
