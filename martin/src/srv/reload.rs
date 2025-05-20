@@ -26,11 +26,18 @@ pub async fn reload_sources(
     #[cfg(feature = "styles")] styles: Data<StyleSources>,
 ) -> ActixResult<HttpResponse> {
     let mut cfg = config.lock().await;
-    let new_sources = cfg
-        .reload_tile_sources(cache.get_ref().clone())
-        .await
-        .map_err(map_internal_error)?;
-    tiles.replace(new_sources);
+    let new_tiles = if cfg.incremental_publish.unwrap_or(false) {
+        cfg
+            .reload_tile_sources_incremental(cache.get_ref().clone(), &tiles)
+            .await
+            .map_err(map_internal_error)?
+    } else {
+        cfg.reload_tile_sources(cache.get_ref().clone())
+            .await
+            .map_err(map_internal_error)?
+    };
+
+    tiles.replace(new_tiles);
 
     let mut cat = catalog.write().await;
     *cat = Catalog {

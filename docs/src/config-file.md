@@ -107,6 +107,14 @@ postgres:
       # Optionally set how source ID should be generated based on the function's name and schema
       source_id_format: '{schema}.{function}'
 
+  # When reloading sources via /reload, only add or remove changed tables
+  # without rebuilding all existing ones
+  incremental_publish: true
+
+  # Enable automatic watching for schema changes and reload sources
+  # Possible values: off, info, debug
+  watch_mode: info
+
   # Associative arrays of table sources
   tables:
     table_source_id:

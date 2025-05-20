@@ -22,6 +22,7 @@ use crate::MartinResult;
 #[cfg(feature = "webui")]
 use crate::args::WebUiMode;
 use crate::config::ServerState;
+use crate::config::WatchMode;
 use crate::source::TileCatalog;
 use crate::srv::config::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use crate::srv::tiles::get_tile;
@@ -207,7 +208,61 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         .run()
         .err_into();
 
-    Ok((Box::pin(server), listen_addresses))
+    let watch_mode = { state.config.blocking_lock().watch_mode.clone() };
+    let cfg = state.config.clone();
+    let tiles = state.tiles.clone();
+    let cache = state.cache.clone();
+    let catalog_clone = catalog.clone();
+    #[cfg(feature = "sprites")]
+    let sprites = state.sprites.clone();
+    #[cfg(feature = "fonts")]
+    let fonts = state.fonts.clone();
+    #[cfg(feature = "styles")]
+    let styles = state.styles.clone();
+
+    let fut = async move {
+        if !matches!(watch_mode, WatchMode::Off) {
+            let watch = async move {
+                use tokio::time::{sleep, Duration};
+                loop {
+                    sleep(Duration::from_secs(30)).await;
+                    let mut cfg = cfg.lock().await;
+                    if let Ok(new_tiles) = cfg
+                        .reload_tile_sources_incremental(cache.clone(), &tiles)
+                        .await
+                    {
+                        tiles.replace(new_tiles);
+
+                        let mut cat = catalog_clone.write().await;
+                        *cat = Catalog {
+                            tiles: tiles.get_catalog(),
+                            #[cfg(feature = "sprites")]
+                            sprites: match sprites.get_catalog() {
+                                Ok(v) => v,
+                                Err(e) => {
+                                    error!("{e}");
+                                    continue;
+                                }
+                            },
+                            #[cfg(feature = "fonts")]
+                            fonts: fonts.get_catalog(),
+                            #[cfg(feature = "styles")]
+                            styles: styles.get_catalog(),
+                        };
+                    }
+                }
+            };
+
+            tokio::select! {
+                res = server => res?,
+                _ = watch => Ok(()),
+            }
+        } else {
+            server.await
+        }
+    };
+
+    Ok((Box::pin(fut), listen_addresses))
 }
 
 #[cfg(test)]

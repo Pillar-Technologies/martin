@@ -49,6 +49,29 @@ impl TileSources {
         }
     }
 
+    #[must_use]
+    pub fn contains(&self, id: &str) -> bool {
+        self.0.contains_key(id)
+    }
+
+    pub fn insert(&self, id: String, src: TileInfoSource) {
+        self.0.insert(id, src);
+    }
+
+    pub fn remove(&self, id: &str) {
+        self.0.remove(id);
+    }
+
+    #[must_use]
+    pub fn ids(&self) -> Vec<String> {
+        self.0.iter().map(|v| v.key().clone()).collect()
+    }
+
+    #[must_use]
+    pub fn into_vec(self) -> Vec<(String, TileInfoSource)> {
+        self.0.into_iter().collect()
+    }
+
     pub fn get_source(&self, id: &str) -> actix_web::Result<TileInfoSource> {
         Ok(self
             .0
