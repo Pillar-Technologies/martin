@@ -111,7 +111,8 @@ postgres:
   # without rebuilding all existing ones
   incremental_publish: true
 
-  # Enable automatic watching for schema changes and reload sources
+  # Watch for schema changes and publish incrementally in the background.
+
   # Possible values: off, info, debug
   watch_mode: info
 

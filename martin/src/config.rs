@@ -51,6 +51,14 @@ use crate::{IdResolver, MartinResult};
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum WatchMode {
+    Off,
+    Info,
+    Debug,
+}
+
 pub struct ServerState {
     pub cache: OptMainCache,
     pub tiles: TileSources,
