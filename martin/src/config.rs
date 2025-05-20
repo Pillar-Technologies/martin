@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
 use futures::future::try_join_all;
+use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use log::info;
@@ -28,6 +29,14 @@ use crate::utils::{CacheValue, MainCache, OptMainCache, init_aws_lc_tls, parse_b
 use crate::{IdResolver, MartinResult};
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum WatchMode {
+    Off,
+    Info,
+    Debug,
+}
 
 pub struct ServerState {
     pub cache: OptMainCache,
@@ -76,6 +85,14 @@ pub struct Config {
     #[cfg(feature = "fonts")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub fonts: OptOneMany<PathBuf>,
+
+    /// Automatically watch for new tables and publish them
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub watch_mode: Option<WatchMode>,
+
+    /// Incrementally update auto published tables on reload
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub incremental_publish: Option<bool>,
 
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
@@ -222,6 +239,33 @@ impl Config {
     ) -> MartinResult<TileSources> {
         let idr = IdResolver::new(RESERVED_KEYWORDS);
         self.resolve_tile_sources(&idr, cache).await
+    }
+
+    pub async fn reload_tile_sources_incremental(
+        &mut self,
+        cache: OptMainCache,
+        current: &TileSources,
+    ) -> MartinResult<TileSources> {
+        let idr = IdResolver::new(RESERVED_KEYWORDS);
+        let new_sources = self.resolve_tile_sources(&idr, cache).await?;
+        let new_vec = new_sources.into_vec();
+        let mut res = current.clone();
+        let new_ids: std::collections::HashSet<_> =
+            new_vec.iter().map(|(id, _)| id.clone()).collect();
+
+        for id in current.ids() {
+            if !new_ids.contains(&id) {
+                res.remove(&id);
+            }
+        }
+
+        for (id, src) in new_vec {
+            if !res.contains(&id) {
+                res.insert(id, src);
+            }
+        }
+
+        Ok(res)
     }
 
     pub fn save_to_file(&self, file_name: PathBuf) -> MartinResult<()> {
