@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
 use futures::future::try_join_all;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use log::info;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
@@ -36,6 +38,7 @@ pub struct ServerState {
     pub fonts: crate::fonts::FontSources,
     #[cfg(feature = "styles")]
     pub styles: crate::styles::StyleSources,
+    pub config: std::sync::Arc<tokio::sync::Mutex<Config>>,
 }
 
 #[serde_with::skip_serializing_none]
@@ -171,6 +174,7 @@ impl Config {
             #[cfg(feature = "styles")]
             styles: crate::styles::StyleSources::resolve(&mut self.styles)?,
             cache,
+            config: Arc::new(Mutex::new(self.clone())),
         })
     }
 
@@ -210,6 +214,14 @@ impl Config {
         }
 
         Ok(TileSources::new(try_join_all(sources).await?))
+    }
+
+    pub async fn reload_tile_sources(
+        &mut self,
+        cache: OptMainCache,
+    ) -> MartinResult<TileSources> {
+        let idr = IdResolver::new(RESERVED_KEYWORDS);
+        self.resolve_tile_sources(&idr, cache).await
     }
 
     pub fn save_to_file(&self, file_name: PathBuf) -> MartinResult<()> {

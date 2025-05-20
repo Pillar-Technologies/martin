@@ -9,6 +9,8 @@ use actix_web::http::header::CACHE_CONTROL;
 use actix_web::middleware::TrailingSlash;
 use actix_web::web::Data;
 use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
@@ -108,15 +110,16 @@ async fn get_health() -> impl Responder {
     wrap = "middleware::Compress::default()"
 )]
 #[allow(clippy::unused_async)]
-async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
-    HttpResponse::Ok().json(catalog)
+async fn get_catalog(catalog: Data<Arc<RwLock<Catalog>>>) -> impl Responder {
+    HttpResponse::Ok().json(&*catalog.read().await)
 }
 
 pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: &SrvConfig) {
     cfg.service(get_health)
         .service(get_catalog)
         .service(get_source_info)
-        .service(get_tile);
+        .service(get_tile)
+        .service(crate::srv::reload::reload_sources);
 
     #[cfg(feature = "sprites")]
     cfg.service(crate::srv::sprites::get_sprite_sdf_json)
@@ -152,7 +155,7 @@ type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 
 /// Create a future for an Actix web server together with the listening address.
 pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
-    let catalog = Catalog::new(&state)?;
+    let catalog = std::sync::Arc::new(tokio::sync::RwLock::new(Catalog::new(&state)?));
 
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
@@ -168,7 +171,8 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
 
         let app = App::new()
             .app_data(Data::new(state.tiles.clone()))
-            .app_data(Data::new(state.cache.clone()));
+            .app_data(Data::new(state.cache.clone()))
+            .app_data(Data::new(state.config.clone()));
 
         #[cfg(feature = "sprites")]
         let app = app.app_data(Data::new(state.sprites.clone()));
