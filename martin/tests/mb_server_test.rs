@@ -20,9 +20,9 @@ macro_rules! create_app {
         let state = mock_sources(mock_cfg($sources)).await.0;
         ::actix_web::test::init_service(
             ::actix_web::App::new()
-                .app_data(actix_web::web::Data::new(
-                    ::martin::srv::Catalog::new(&state).unwrap(),
-                ))
+                .app_data(actix_web::web::Data::new(std::sync::Arc::new(
+                    tokio::sync::RwLock::new(::martin::srv::Catalog::new(&state).unwrap()),
+                )))
                 .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
                 .app_data(actix_web::web::Data::new(state.tiles))
                 .app_data(actix_web::web::Data::new(SrvConfig::default()))

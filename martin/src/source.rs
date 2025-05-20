@@ -42,6 +42,13 @@ impl TileSources {
             .collect()
     }
 
+    pub fn replace(&self, other: TileSources) {
+        self.0.clear();
+        for (k, v) in other.0.into_iter() {
+            self.0.insert(k, v);
+        }
+    }
+
     pub fn get_source(&self, id: &str) -> actix_web::Result<TileInfoSource> {
         Ok(self
             .0

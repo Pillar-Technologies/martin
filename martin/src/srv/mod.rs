@@ -13,6 +13,9 @@ pub use tiles::{DynTileSource, TileRequest};
 mod tiles_info;
 pub use tiles_info::{SourceIDsRequest, merge_tilejson};
 
+mod reload;
+pub use reload::reload_sources;
+
 #[cfg(feature = "sprites")]
 mod sprites;
 
