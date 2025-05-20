@@ -116,6 +116,7 @@ async fn get_catalog(catalog: Data<Arc<RwLock<Catalog>>>) -> impl Responder {
 
 pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: &SrvConfig) {
     cfg.service(get_health)
+        .service(crate::srv::reload::reload_sources)
         .service(get_catalog)
         .service(get_source_info)
         .service(get_tile)
