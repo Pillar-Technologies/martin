@@ -90,16 +90,23 @@ pub async fn query_available_tables(pool: &PgPool) -> PgResult<SqlTableInfoMapMa
 
 /// Generate an SQL snippet to escape a column name, and optionally alias it.
 /// Assumes to not be the first column in a SELECT statement.
-fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
+fn escape_with_alias(
+    mapping: &HashMap<String, String>,
+    field: &str,
+    typ: Option<&str>,
+) -> String {
     let column = mapping.get(field).map_or(field, |v| v.as_str());
-    if field == column {
-        format!(", {}", escape_identifier(column))
+    let needs_cast = matches!(typ, Some("json") | Some("jsonb"));
+    let expr = if needs_cast {
+        format!("{}::text", escape_identifier(column))
     } else {
-        format!(
-            ", {} AS {}",
-            escape_identifier(column),
-            escape_identifier(field),
-        )
+        escape_identifier(column).to_string()
+    };
+
+    if field == column && !needs_cast {
+        format!(", {}", expr)
+    } else {
+        format!(", {} AS {}", expr, escape_identifier(field))
     }
 }
 
@@ -153,8 +160,8 @@ pub async fn table_to_query(
 
     let properties = if let Some(props) = &info.properties {
         props
-            .keys()
-            .map(|column| escape_with_alias(&info.prop_mapping, column))
+            .iter()
+            .map(|(column, typ)| escape_with_alias(&info.prop_mapping, column, Some(typ)))
             .collect::<String>()
     } else {
         String::new()
@@ -163,7 +170,7 @@ pub async fn table_to_query(
     let (id_name, id_field) = if let Some(id_column) = &info.id_column {
         (
             format!(", {}", escape_literal(id_column)),
-            escape_with_alias(&info.prop_mapping, id_column),
+            escape_with_alias(&info.prop_mapping, id_column, None),
         )
     } else {
         (String::new(), String::new())
